@@ -20,21 +20,21 @@ Download it from GitHub:
 git clone https://github.com/ben-harland/wav-loader.git
 ```
 
-The library consists of exactly two files: `wav-loader.h` (the public
-API) and `wav-loader.cpp` (the implementation). Either build them in
-place, or copy both files into your own source tree — that is all there
-is to installation.
+The library is a single header-only file: `wav-loader.h` (public API and
+implementation). Either add its directory to your include path, or copy
+the header into your own source tree — that is all there is to
+installation.
 
 Build with C++17 (a C++20 build additionally enables a
 `std::span<const std::byte>` overload):
 
 ```sh
-c++ -std=c++17 -c wav-loader.cpp -I<directory containing wav-loader.h>
+c++ -std=c++17 -I<directory containing wav-loader.h> your-code.cpp
 ```
 
-Add the directory containing `wav-loader.h` to the include path of any
-translation unit that uses the library. There are no dependencies and no
-configuration options. The whole API is the single class `wav::WavFile`.
+Include `"wav-loader.h"` wherever you need it. There are no dependencies,
+no configuration options, and nothing to link. The whole API is the
+single class `wav::WavFile`.
 
 Important constraints:
 
@@ -84,11 +84,15 @@ if (file.HasError()) {
 
 Each getter returns a `std::vector<std::vector<T>>` with one vector per
 channel; if the requested type differs from the native one, samples are
-converted (float range [-1, 1] maps to [-(2^(N-1) - 1), 2^(N-1) - 1] for
-an N-bit integer destination, auto-scaled by the highest *finite* absolute
-value so nothing is clipped; non-finite samples become zero; integer
-down-conversions get TPDF dither; up-conversions and float-to-float are
-exact):
+converted. For float-to-integer conversions, the library scans the data
+for the highest finite absolute sample value, `m`, and maps `[-m, m]` to
+`[-(2^(N-1) - 1), 2^(N-1) - 1]` for an N-bit integer destination (e.g. if
+the loudest sample is -45.65, [-45.65, 45.65] maps to [-127, 127] for 8
+bit), so nothing is ever clipped. Non-finite samples become zero; int to
+int of lower depth gets TPDF dither at the destination LSB; int to float
+maps the full integer range to [-1, 1); int to int of greater depth is an
+exact power-of-two rescale; float to float is a plain conversion without
+dithering (double to float loses precision):
 
 ```cpp
 std::vector<std::vector<float>> audio = file.GetFloat32();
